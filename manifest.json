@@ -3,6 +3,9 @@
   "name": "Submitty Tweaks",
   "version": "1.0",
   "description": "Prefetch Submitty links for faster navigation.",
+  "permissions": [
+    "tabs"
+  ],
   "content_scripts": [
     {
       "matches": ["https://submitty.cs.rpi.edu/*"],
