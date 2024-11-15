@@ -6,11 +6,25 @@
     let prevIsReady = false;
     let prevIsClicked = false;
 
-    function prefetchPage(url, id, navigate_callback) {
+    function prefetchPage(url, id) {
 
-        nextIsReady = false;
+        const existingPrefetchFrame = document.getElementById(`prefetch-frame-${id}`);
+
+        if (existingPrefetchFrame) {
+            console.log("We already have frame in this direction");
+            return;
+        }
+
+        if (id === 'next') {
+            nextIsReady = false;
+            prevIsReady = true;
+        }
+        if (id === 'prev') {
+            nextIsReady = true;
+            prevIsReady = false;
+        }
+
         nextIsClicked = false;
-        prevIsReady = false;
         prevIsClicked = false;
 
         // Remove any existing prefetch iframe to ensure a fresh one is created
@@ -21,6 +35,7 @@
         prefetchFrame.style.width = '100%'; // Full width
         prefetchFrame.style.height = '100vh'; // Full height
         prefetchFrame.style.border = 'none'; // No border
+        prefetchFrame.style.frameBorder = 'none'; // No border
         prefetchFrame.id = `prefetch-frame-${id}`;
         prefetchFrame.src = url;
 
@@ -29,35 +44,51 @@
 
         prefetchFrame.onload = () => {
             console.log(`Prefetched page loaded in iframe: ${url}`);
-            nextIsReady = true;
-            if (nextIsClicked) {
-                navigate_callback()
+            if (id === 'next') {
+                nextIsReady = true;
+                if (nextIsClicked) {
+                    loadPrefetchedPage(id);
+                }
+            }
+            if (id === 'prev') {
+                prevIsReady = true;
+                if (prevIsClicked) {
+                    loadPrefetchedPage(id);
+                }
             }
         };
 
     }
 
     function loadPrefetchedPage(id) {
-        const prefetchFrame = document.getElementById(`prefetch-frame-${id}`);
-
-        if (!prefetchFrame) {
-            console.error('Prefetched iframe not found.');
-            return;
-        }
-
         try {
 
             // Remove all other content from the document body except the main frame
             const bodyChildren = Array.from(document.body.children);
             bodyChildren.forEach((child) => {
-                if (child.id !== `prefetch-frame-${id}`) {
+                if (child.id !== `prefetch-frame-${id}` && child.id !== 'main-frame') {
                     document.body.removeChild(child);
+                    console.log(`Removed child: ${child.id}`)
+                } else {
+                    console.log(`Saved child: ${child.id}`)
                 }
             });
+
+            const prefetchFrame = document.getElementById(`prefetch-frame-${id}`);
+            const mainFrame = document.getElementById(`main-frame`);
+
+            mainFrame.style.display = 'none';
 
             // Make the prefetch iframe visible
             prefetchFrame.style.display = 'block';
             prefetchFrame.id = 'main-frame'; // Rename to indicate it's now the main content
+
+            console.log(`id: ${id}`)
+            if (id == 'next') {
+                mainFrame.id = 'prefetch-frame-prev';
+            } else {
+                mainFrame.id = 'prefetch-frame-next';
+            }
 
             console.log("recursing")
             setPrefetchHref();
@@ -144,6 +175,20 @@
         observer.observe(iframeBody, { childList: true, subtree: true });
     }
 
+    function loadNext() {
+        nextIsClicked = true;
+        if (nextIsReady) {
+            loadPrefetchedPage('next');
+        }
+    }
+
+    function loadPrev() {
+        prevIsClicked = true;
+        if (prevIsReady) {
+            loadPrefetchedPage('prev');
+        }
+    }
+
     function setPrefetchHref() {
         const mainFrame = document.getElementById('main-frame');
 
@@ -170,12 +215,11 @@
             prefetchPage(prevUrl, 'prev');
 
             console.log('Setting hrefs for next and prev elements');
-            nextStudentElement.addEventListener('click', () => {
-                loadPrefetchedPage('next');
-            });
-            prevStudentElement.addEventListener('click', () => {
-                loadPrefetchedPage('prev');
-            });
+            nextStudentElement.removeEventListener('click', loadNext);
+            nextStudentElement.addEventListener('click', loadNext);
+
+            prevStudentElement.removeEventListener('click', loadPrev);
+            prevStudentElement.addEventListener('click', loadPrev);
         } else {
             console.log('starting listener');
             mainFrame.addEventListener('load', () => {
@@ -185,30 +229,17 @@
                     prevStudentElement.setAttribute('href', 'javascript:void(0)');
 
                     const nextUrl = nextStudentElement.getAttribute('data-href');
-                    prefetchPage(nextUrl, 'next', () => {
-                        loadPrefetchedPage('next');
-                    });
+                    prefetchPage(nextUrl, 'next');
 
                     const prevUrl = prevStudentElement.getAttribute('data-href');
                     prefetchPage(prevUrl, 'prev');
 
                     console.log('Setting hrefs for next and prev elements');
-                    nextStudentElement.addEventListener('click', () => {
-                        nextIsClicked = true;
-                        if (nextIsReady) {
-                            loadPrefetchedPage('next');
-                        }
-                    });
-                    prevStudentElement.addEventListener('click', () => {
-                        loadPrefetchedPage('prev');
-                    });
+                    nextStudentElement.addEventListener('click', loadNext);
+                    prevStudentElement.addEventListener('click', loadPrev);
                 });
             });
         }
-    }
-
-    function setupPrefetches() {
-
     }
 
     window.addEventListener('load', function() {
